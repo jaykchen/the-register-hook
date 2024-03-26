@@ -33,9 +33,7 @@ async fn handler(
 
     let mut router = Router::new();
     router
-        .insert("/register", vec![get(register_user)])
-        .unwrap();
-    router.insert("/callback", vec![post(parse_token)]).unwrap();
+        .insert("/register", vec![get(register_user), post(parse_token)]).unwrap();
 
     if let Err(e) = route(router).await {
         match e {
@@ -84,9 +82,9 @@ async fn exchange_token_w_output(code: String) -> anyhow::Result<String> {
         "client_secret": client_secret,
         "code": code,
         "grant_type": "authorization_code",
-        "redirect_uri": "https://code.flows.network/webhook/jKRuADFii4naC7ANMFtL/callback"
     })
     .to_string();
+// "redirect_uri": "https://code.flows.network/webhook/jKRuADFii4naC7ANMFtL/register"
 
     let writer = github_http_post(&url, &params).await?;
     // "access_token=blurred&scope=read%3Auser&token_type=bearer\"",
