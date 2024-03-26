@@ -33,8 +33,9 @@ async fn handler(
 
     let mut router = Router::new();
     router
-        .insert("/register", vec![get(register_user), post(parse_token)])
+        .insert("/register", vec![get(register_user)])
         .unwrap();
+    router.insert("/callback", vec![post(parse_token)]).unwrap();
 
     if let Err(e) = route(router).await {
         match e {
@@ -82,7 +83,8 @@ async fn exchange_token_w_output(code: String) -> anyhow::Result<String> {
         "client_id": client_id,
         "client_secret": client_secret,
         "code": code,
-        "redirect_uri": "https://code.flows.network/webhook/jKRuADFii4naC7ANMFtL/register"
+        "grant_type": "authorization_code",
+        "redirect_uri": "https://code.flows.network/webhook/jKRuADFii4naC7ANMFtL/callback"
     })
     .to_string();
 
@@ -94,31 +96,42 @@ async fn exchange_token_w_output(code: String) -> anyhow::Result<String> {
         .into_owned()
         .collect();
     let temp_str = String::new();
-    let token = parsed
+    let mut token = parsed
         .iter()
         .find(|(k, _)| k == "access_token")
-        .map(|(_, v)| v)
-        .unwrap_or(&temp_str);
+        .map(|(_, v)| v.to_string())
+        .unwrap_or(temp_str);
 
-    // let load: Load = match serde_json::from_slice(&writer) {
-    //     Ok(m) => {
-    //         log::error!("{m:?}");
-    //         m
-    //     }
+    log::error!("Token parsed from params: {:?}", token.clone());
 
-    //     Err(e) => {
-    //         log::error!("failed to parse response: {:?}", e);
-    //         panic!()
-    //     }
-    // };
-    // #[derive(Debug, Deserialize, Serialize, Clone, Default)]
-    // struct Load {
-    //     access_token: Option<String>,
-    //     scope: Option<String>,
-    //     token_type: Option<String>,
-    // }
+    if token.is_empty() {
+        let load: Load = match serde_json::from_slice(&writer) {
+            Ok(m) => {
+                log::error!("{m:?}");
+                m
+            }
 
-    // let token = load.access_token.unwrap_or_default();
+            Err(e) => {
+                log::error!("failed to parse access token response: {:?}", e);
+                panic!()
+            }
+        };
+        #[derive(Debug, Deserialize, Serialize, Clone, Default)]
+        struct Load {
+            access_token: Option<String>,
+            scope: Option<String>,
+            token_type: Option<String>,
+        }
+        log::error!("Token parsed from bdoy: {:?}", token.clone());
+
+        match load.access_token {
+            Some(m) => token = m,
+            None => {
+                log::error!("failed to get token");
+                panic!()
+            }
+        }
+    }
 
     Ok(token.to_string())
 }
@@ -132,6 +145,8 @@ pub async fn github_http_post(url: &str, query: &str) -> anyhow::Result<Vec<u8>>
     match Request::new(&uri)
         .method(Method::POST)
         .header("User-Agent", "flows-network connector")
+        .header("Content-Type", "application/json")
+        .header("Accept", "application/json")
         .header("Authorization", &format!("Bearer {}", token))
         .header("Content-Length", &query.to_string().len())
         .body(&query.to_string().into_bytes())
@@ -198,27 +213,6 @@ pub async fn get_user_profile_with_his_token(
     let email = user.email.unwrap_or_default();
     Ok((name, login, twitter_username, email))
 }
-use rand::prelude::IteratorRandom;
-use rand::Rng;
-use sha2::{Digest, Sha256};
-use std::iter;
-// let (rand_str, hash_hex) = generate_verifier(16); // You can adjust the length as needed
-fn generate_verifier(length: usize) -> (String, String) {
-    let characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-    let mut rng = rand::thread_rng();
-
-    let rand_str: String = iter::repeat(())
-        .map(|()| characters.chars().choose(&mut rng).unwrap())
-        .take(length * 2) // Generate a string of double the length
-        .collect();
-
-    let mut hasher = Sha256::new();
-    hasher.update(rand_str.as_bytes());
-    let result = hasher.finalize();
-    let hash_hex = format!("{:x}", result);
-
-    (rand_str, hash_hex)
-}
 
 /* async fn exchange_token(code: String) -> anyhow::Result<()> {
     let client_id = env::var("client_id").expect("github_client_id is required");
@@ -245,7 +239,7 @@ async fn parse_token(
     _body: Vec<u8>,
 ) {
     log::error!("post query: {:?}", _qry);
-    let mut token = String::new();
+    // let mut token = String::new();
     // match _qry.get("access_token") {
     //     Some(m) => token = m.as_str().unwrap_or_default().to_owned(),
     //     _ => log::error!("missing code"),
