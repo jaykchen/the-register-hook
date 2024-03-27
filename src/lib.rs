@@ -53,14 +53,7 @@ async fn register_user(
     _qry: HashMap<String, Value>,
     _body: Vec<u8>,
 ) {
-    let mut code = String::new();
-
-    match _qry.get("code") {
-        Some(m) => code = m.as_str().unwrap_or_default().to_owned(),
-        _ => log::error!("missing code"),
-    }
-
-    log::error!("Code: {:?}", code);
+    let code = _qry.get("code").and_then(|m| m.as_str()).unwrap_or("");
     let token = exchange_token_w_output(code)
         .await
         .expect("failed to get token");
@@ -71,11 +64,10 @@ async fn register_user(
     log::error!("User: {:?}", user);
 }
 
-async fn exchange_token_w_output(code: String) -> anyhow::Result<String> {
+async fn exchange_token_w_output(code: &str) -> anyhow::Result<String> {
     let client_id = env::var("client_id").expect("github_client_id is required");
     let client_secret = env::var("client_secret").expect("github_client_secret is required");
-    let url = format!("https://github.com/login/oauth/access_token");
-    // let url = format!("https://github.com/login/oauth/access_token?client_id={client_id}&client_secret={client_secret}&code={code}&redirect_uri=https://code.flows.network/webhook/jKRuADFii4naC7ANMFtL/register");
+    let url = "https://github.com/login/oauth/access_token";
 
     let params = json!({
         "client_id": client_id,
@@ -86,10 +78,9 @@ async fn exchange_token_w_output(code: String) -> anyhow::Result<String> {
     .to_string();
     // "redirect_uri": "https://code.flows.network/webhook/jKRuADFii4naC7ANMFtL/register"
 
-    let writer = github_http_post(&url, &params).await?;
-    // "access_token=blurred&scope=read%3Auser&token_type=bearer\"",
-    let stuff_in_writer = String::from_utf8_lossy(&writer);
-    log::error!("Exchange token Response: {:?}", stuff_in_writer);
+    let writer = github_http_post(url, &params).await?;
+    // let stuff_in_writer = String::from_utf8_lossy(&writer);
+    // log::error!("Exchange token Response: {:?}", stuff_in_writer);
 
     let load: Load = serde_json::from_slice(&writer)?;
 
@@ -110,7 +101,7 @@ async fn exchange_token_w_output(code: String) -> anyhow::Result<String> {
 }
 
 pub async fn github_http_post(url: &str, query: &str) -> anyhow::Result<Vec<u8>> {
-    let token = env::var("GITHUB_TOKEN").expect("github_token is required");
+    // let token = env::var("GITHUB_TOKEN").expect("github_token is required");
     let mut writer = Vec::new();
 
     let uri = Uri::try_from(url).expect("failed to parse url");
@@ -120,7 +111,7 @@ pub async fn github_http_post(url: &str, query: &str) -> anyhow::Result<Vec<u8>>
         .header("User-Agent", "flows-network connector")
         .header("Content-Type", "application/json")
         .header("Accept", "application/json")
-        .header("Authorization", &format!("Bearer {}", token))
+        // .header("Authorization", &format!("Bearer {}", token))
         .header("Content-Length", &query.to_string().len())
         .body(&query.to_string().into_bytes())
         .send(&mut writer)
