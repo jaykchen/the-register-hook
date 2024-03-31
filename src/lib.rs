@@ -55,10 +55,25 @@ async fn register_user(
     _body: Vec<u8>,
 ) {
     let code = _qry.get("code").and_then(|m| m.as_str()).unwrap_or("");
-    let token = exchange_token_w_output(code)
-        .await
-        .expect("failed to get token");
-    log::info!("Token: {:?}", token);
+    let mut token = String::new();
+    match exchange_token_w_output(code).await {
+        Ok(m) => {
+            token = m;
+            log::info!("Token: {:?}", token);
+
+            send_response(200, vec![], b"You've successfully registered.".to_vec());
+        }
+
+        Err(e) => {
+            log::error!("Error: {:?}", e);
+            send_response(
+                500,
+                vec![],
+                b"Something went wrong with the registration, please try again.".to_vec(),
+            );
+            return;
+        }
+    };
 
     let (_, login, _, email) = get_user_profile_with_his_token(&token)
         .await
