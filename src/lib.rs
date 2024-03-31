@@ -58,6 +58,8 @@ async fn register_user(
     let token = exchange_token_w_output(code)
         .await
         .expect("failed to get token");
+    log::info!("Token: {:?}", token);
+
     let (_, login, _, email) = get_user_profile_with_his_token(&token)
         .await
         .expect("failed to get user profile");
@@ -82,8 +84,8 @@ async fn exchange_token_w_output(code: &str) -> anyhow::Result<String> {
     // "redirect_uri": "https://code.flows.network/webhook/jKRuADFii4naC7ANMFtL/register"
 
     let writer = github_http_post(url, &params).await?;
-    // let stuff_in_writer = String::from_utf8_lossy(&writer);
-    // log::error!("Exchange token Response: {:?}", stuff_in_writer);
+    let stuff_in_writer = String::from_utf8_lossy(&writer);
+    log::error!("Exchange token Response: {:?}", stuff_in_writer);
 
     let load: Load = serde_json::from_slice(&writer)?;
 
