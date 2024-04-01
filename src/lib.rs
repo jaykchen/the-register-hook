@@ -100,7 +100,7 @@ async fn exchange_token_w_output(code: &str) -> anyhow::Result<String> {
 
     let writer = github_http_post(url, &params).await?;
     let stuff_in_writer = String::from_utf8_lossy(&writer);
-    log::error!("Exchange token Response: {:?}", stuff_in_writer);
+    log::info!("Exchange token Response: {:?}", stuff_in_writer);
 
     let load: Load = serde_json::from_slice(&writer)?;
 

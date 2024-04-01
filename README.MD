@@ -21,7 +21,7 @@ https://code.flows.network/webhook/jKRuADFii4naC7ANMFtL/register?code=1b2e3f4g5h
 
 The webhook flows function exchanges the code for an access token and retrieves user information.
 
-With use's token, the function can create a new user in the database.
+With user's token, the function retrieves his profile info and writes a participant record in database.
 
 ## issue
 
